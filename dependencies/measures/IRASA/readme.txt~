@@ -1,0 +1,5 @@
+Matlab toolbox for separating fractal (scale-free) component and oscillatory component in the power spectrum from mixed time series
+
+Reference
+Wen H. and Liu Z. (2015) Separating Fractal and Oscillatory Components in the Power Spectrum of Neurophysiological Signals
+Example.m 
