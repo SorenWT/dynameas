@@ -14,10 +14,10 @@ function [stats] = EasyClusterCorrect(data,datasetinfo,statfun,opts)
 %         meg: requires fields 'grad' (a fieldtrip gradiometer structure)
 %            and 'label'
 %         source: currently only region-based correction supported.
-%            Requires fields 'atlas' (a fieldtrip atlas structure) and
-%            'atlasname' (currently only 'aal','mmp', and 'yeo' suppported
-%            - for 'yeo' the atlas must be modified to include 'pos' and
-%            'tri' fields from an HCP subject's source model)
+%            Requires fields 'atlas' (a fieldtrip atlas structure),
+%            'parcfield' (the name of the field which contains the
+%            parcellation information), and 'type' (either 'volume' or
+%            'surface')
 %      statfun: the fieldtrip statfun used for the statistics (e.g.
 %         ft_statfun_signrank)
 %      opts: optional argument which changes some parameters of the
@@ -107,14 +107,20 @@ if isfield(datasetinfo,'grad') || isfield(datasetinfo,'elec')
         neighbs = ft_prepare_neighbours(cfg,datasetinfo);
     end
 else
-    switch datasetinfo.atlasname
-        case 'aal'
-            tissue = datasetinfo.atlas.tissue;
-            tissue(find(tissue == 0)) = NaN;
+    parcfield = datasetinfo.parcfield; parclabel = [parcfield 'label'];
+    
+    if ischar(datasetinfo.atlas) || isstr(datasetinfo.atlas)
+        datasetinfo.atlas = ft_read_atlas(datasetinfo.atlas);
+    end
+    
+    switch datasetinfo.type
+        case 'volume'
+            tissue = datasetinfo.atlas.(parcfield);
+            tissue(tissue == 0) = NaN;
             
             neighbs = struct;
-            for c = 1:length(datasetinfo.atlas.tissuelabel)
-                neighbs(c).label = datasetinfo.atlas.tissuelabel{c};
+            for c = 1:length(datasetinfo.atlas.(parclabel))
+                neighbs(c).label = datasetinfo.atlas.(parclabel){c};
                 neighbs(c).neighblabel = cell(1,1);
             end
             
@@ -137,12 +143,12 @@ else
                 neighbs(c).neighblabel(1) = [];
                 neighbs(c).neighblabel = unique(neighbs(c).neighblabel);
             end
-        case {'mmp','yeo'}
+        case 'surface'
             
-            if strcmpi(datasetinfo.atlasname,'yeo')
-                datasetinfo.atlas.parcellationlabel = cellstr(num2str([1:8004]'));
-                datasetinfo.atlas.parcellation = datasetinfo.atlas.parcels;
-            end
+%             if strcmpi(datasetinfo.atlasname,'yeo')
+%                 datasetinfo.atlas.parcellationlabel = cellstr(num2str([1:8004]'));
+%                 datasetinfo.atlas.parcellation = datasetinfo.atlas.parcels;
+%             end
             
             pos = datasetinfo.atlas.pos;
             tri = datasetinfo.atlas.tri;
@@ -158,20 +164,20 @@ else
                 vox_neighbs{c} = unique(vox_neighbs{c});
             end
             
-            reg_neighbs = cell(1,length(datasetinfo.atlas.parcellationlabel));
-            for c = 1:length(datasetinfo.atlas.parcellationlabel)
-                reg_neighbs{c} = cat(2,vox_neighbs{find(datasetinfo.atlas.parcellation == c)});
+            reg_neighbs = cell(1,length(datasetinfo.atlas.(parclabel)));
+            for c = 1:length(datasetinfo.atlas.(parclabel))
+                reg_neighbs{c} = cat(2,vox_neighbs{datasetinfo.atlas.(parcfield) == c});
                 for cc = 1:length(reg_neighbs{c})
-                    reg_neighbs{c}(cc) = datasetinfo.atlas.parcellation(reg_neighbs{c}(cc));
+                    reg_neighbs{c}(cc) = datasetinfo.atlas.(parcfield)(reg_neighbs{c}(cc));
                 end
                 reg_neighbs{c} = unique(reg_neighbs{c});
-                reg_neighbs{c}(find(reg_neighbs{c} == c)) = [];
+                reg_neighbs{c}(reg_neighbs{c} == c) = [];
             end
             
             neighbs = struct;
             for c = 1:length(reg_neighbs)
-                neighbs(c).label = datasetinfo.atlas.parcellationlabel{c};
-                neighbs(c).neighblabel = {datasetinfo.atlas.parcellationlabel{reg_neighbs{c}}};
+                neighbs(c).label = datasetinfo.atlas.(parclabel){c};
+                neighbs(c).neighblabel = {datasetinfo.atlas.(parclabel){reg_neighbs{c}}};
             end
             
             vox_neighbs = [];

@@ -24,7 +24,7 @@ function [outputs] = dm_applymeasure(cfg)
 %      outfile: the file into which to write the output. Can specify 'none'
 %         to skip writing to disk (default = 'outputs.mat')
 %
-%      
+%
 %      transform: a cell array of configuration structures for transforming
 %         the data prior to applying measures. Each config structure should
 %         contain the following fields:
@@ -32,9 +32,9 @@ function [outputs] = dm_applymeasure(cfg)
 %             fldr: the folder in which to load or save the transformed
 %               data, if applicable (defaults to the same folder as the
 %               original file
-%         See each transform function's documentation to see the config 
+%         See each transform function's documentation to see the config
 %         options specific to that function
-%      
+%
 %      Because of the comptutationally expensive nature of methods like the
 %      IRASA, data transformations apply to the whole set of measures.
 %      Currently, you cannot apply a filter or amplitude envelope with one
@@ -89,7 +89,7 @@ function [outputs] = dm_applymeasure(cfg)
 if iscell(cfg)
     alloutputs = cell(size(cfg));
     for i = 1:length(cfg)
-       alloutputs{i} = dm_applymeasure(cfg{i});
+        alloutputs{i} = dm_applymeasure(cfg{i});
     end
     outputs = dm_concat_outputs(alloutputs{:});
     outputs.cfg = cfg;
@@ -108,9 +108,9 @@ else
     
     cfg = setdefault(cfg,'outfile',fullfile(pwd,'outputs.mat'));
     if cfg.outfile(1) ~= filesep && cfg.outfile(2) ~= ':' %check for relative path
-       cfg.outfile = fullfile(pwd,cfg.outfile); 
+        cfg.outfile = fullfile(pwd,cfg.outfile);
     end
-        
+    
     cfg = setdefault(cfg,'transform',{});
     
     if ~isempty(cfg.transform)
@@ -129,7 +129,7 @@ else
     cfg = setdefault(cfg,'concatenate','yes');
     
     cfg = setdefault(cfg,'single','no');
-        
+    
     if ~cfgcheck(cfg,'parallel')
         cfg.parallel.do_parallel = 'no';
     end
@@ -138,7 +138,7 @@ else
     
     %% Start up fieldtrip, eeglab if necessary
     if cfgcheck(cfg,'format','eeglab')
-%        eeglab rebuild
+        %        eeglab rebuild
     end
     
     ft_defaults
@@ -153,7 +153,6 @@ else
         dirname = uigetdir;
     end
     
-    
     files = dir(fullfile(dirname,cfg.files));
     
     %% Set up the outputs structure
@@ -162,7 +161,7 @@ else
     else
         outputs = struct;
         outputs.dimord = 'sub_chan_meas';
-            
+        
         outputs.meas = cfg.measure;
         outputs.startsub = 1;
         
@@ -187,64 +186,167 @@ else
             disp(['Now processing subject ' num2str(i)])
             
             
-            if cfgcheck(cfg,'format','fieldtrip')
-                EEG = struct;
-                allvars = load(fullfile(files(i).folder,filename));
-                if ~cfgcheck(cfg,'ftvar')
-                    names = fieldnames(allvars);
-                    for c = 1:length(names)
-                        if isstruct(allvars.(names{c}))
-                            data = allvars.(names{c});
-                            clear allvars
-                            break
+            switch cfg.format
+                case 'fieldtrip'
+                    EEG = struct;
+                    allvars = load(fullfile(files(i).folder,filename));
+                    if ~cfgcheck(cfg,'ftvar')
+                        names = fieldnames(allvars);
+                        for c = 1:length(names)
+                            if isstruct(allvars.(names{c}))
+                                data = allvars.(names{c});
+                                clear allvars
+                                break
+                            end
                         end
+                        clear names
+                    else
+                        data = allvars.(ftvar);
                     end
-                    clear names
-                else
-                    data = allvars.(ftvar);
-                end
-                
-                if cfgcheck(cfg,'single','yes')
-                    data = ft_struct2single(data);
-                end
-                
-                if cfgcheck(cfg,'concatenate','yes')
-                    data = ft_concat(data);
-                end
-                
-                if i == outputs.startsub-1
-                    if isfield(data,'label')
-                        outputs.chan = data.label;
-                    end
-                    if isfield(data,'elec')
-                        outputs.elec = data.elec;
-                    elseif isfield(data,'grad')
-                        outputs.grad = data.grad;
-                    end
-                end
-                
-                EEG = ft2eeglab(data);
-            else
-                EEG = pop_loadset( 'filename', filename, 'filepath', files(i).folder);
-                outputs.chanlocs = EEG.chanlocs;
-                if i == outputs.startsub-1
-                    data = eeglab2fieldtrip(EEG,'preprocessing','none');
                     
                     if cfgcheck(cfg,'concatenate','yes')
                         data = ft_concat(data);
-                        EEG = ft2eeglab(data);
-                        EEG.chanlocs = outputs.chanlocs;
                     end
-                   
-                    if isfield(data,'label')
-                        outputs.chan = data.label;
+                    
+                    if i == outputs.startsub-1
+                        if isfield(data,'label')
+                            outputs.chan = data.label;
+                        end
+                        if isfield(data,'elec')
+                            outputs.elec = data.elec;
+                        elseif isfield(data,'grad')
+                            outputs.grad = data.grad;
+                        end
                     end
-                    if isfield(data,'elec')
-                        outputs.elec = data.elec;
-                    elseif isfield(data,'grad')
-                        outputs.grad = data.grad;
+                    
+                    EEG = ft2eeglab(data);
+                case 'eeglab'
+                    EEG = pop_loadset( 'filename', filename, 'filepath', files(i).folder);
+                    outputs.chanlocs = EEG.chanlocs;
+                    if i == outputs.startsub-1
+                        data = eeglab2fieldtrip(EEG,'preprocessing','none');
+                        
+                        if cfgcheck(cfg,'concatenate','yes')
+                            data = ft_concat(data);
+                            EEG = ft2eeglab(data);
+                            EEG.chanlocs = outputs.chanlocs;
+                        end
+                        
+                        if isfield(data,'label')
+                            outputs.chan = data.label;
+                        end
+                        if isfield(data,'elec')
+                            outputs.elec = data.elec;
+                        elseif isfield(data,'grad')
+                            outputs.grad = data.grad;
+                        end
                     end
+                case 'afni'
+                    opt = struct; opt.format = 'vector';
+                    [~,brik,brikinfo] = BrikLoad(fullfile(files(i).folder,filename));
+                    EEG = eeg_emptyset();
+                    EEG.data = brik;
+                    brik = [];
+                    EEG.srate = 1000/brikinfo.TAXIS_OFFSETS;
+                    EEG.etc.dims = brikinfo.DATASET_DIMENSIONS(1:3);
+                    EEG = eeg_checkset(EEG);
+                    EEG = ft_struct2single(EEG);
+                    
+                    if i == outputs.startsub-1
+                        outputs.ext{i} = char(extractAfter(filename,'+'));
+                        outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
+                        outputs.hdr = brikinfo;
+                    end
+                case 'nifti'
+                    info = niftiinfo(fullfile(files(i).folder,filename));
+
+                    data = niftiread(fullfile(files(i).folder,filename));
+                    EEG = eeg_emptyset();
+                    EEG.data = reshape(data,[],info.ImageSize(4));
+                    data = [];
+                    if strcmpi(info.TimeUnits,'second')
+                        EEG.srate = 1/info.PixelDimensions(4);
+                    elseif strcmpi(info.TimeUnits,'millisecond')
+                        EEG.srate = 1000/info.PixelDimensions(4);
+                    else
+                        error('Dynameas error: unknown time unit in nifti header')
+                    end
+                    
+                    EEG.etc.dims = info.ImageSize;
+                    EEG = eeg_checkset(EEG);
+                    EEG = ft_struct2single(EEG);
+                    
+                    if i == outputs.startsub-1
+                        outputs.hdr = info;
+                        outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
+                    end
+                case {'spm','analyze'}
+                    mkdir tmp 
+                    gunzip(fullfile(files(i).folder,filename),fullfile(pwd,tmp))
+                    cd tmp
+                    tmpfiles = dir('*.img');
+                    V = spm_vol(extractfield(tmpfiles,'name'));
+                    V = cat(1,V{:});
+                    dat = spm_read_vols(V);
+                    EEG = eeg_emptyset(EEG);
+                    EEG.data = reshape(dat,[],length(V));
+                    dat = [];
+                    EEG.srate = 1; %fix this later
+                    EEG.etc.dims = V(1).dim;
+                    EEG = eeg_checkset(EEG);
+                    EEG = ft_struct2single(EEG);
+                    
+                    if i == outputs.startsub-1
+                        outputs.hdr = mergestructs(V);
+                        outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
+                    end
+                    cd ..
+                    system(['rm -r tmp']) % fix later - requires linux or mac
+                case {'raw','mne'}
+                    cfg = []; cfg.dataset = fullfile(files(i).folder,filename);
+                    data = ft_preprocessing(cfg,data);
+                    
+                    if cfgcheck(cfg,'concatenate','yes')
+                        data = ft_concat(data);
+                    end
+                    
+                    if i == outputs.startsub-1
+                        if isfield(data,'label')
+                            outputs.chan = data.label;
+                        end
+                        if isfield(data,'elec')
+                            outputs.elec = data.elec;
+                        elseif isfield(data,'grad')
+                            outputs.grad = data.grad;
+                        end
+                    end
+                    
+                    EEG = ft2eeglab(data);
+                otherwise
+                    error('Dynameas error: format not recognized. Please check that cfg.format is of a known type')
+            end
+            
+            if i == outputs.startsub-1
+                if cfgcheck(cfg,'mask')
+                    if contains(cfg.mask,'nii')
+                        mask = niftiread(cfg.mask);
+                    elseif contains(cfg.mask,'brik')
+                        [~,mask,tmp] = BrikLoad(cfg.mask);
+                    elseif contains(cfg.mask,'img')
+                        tmpv = spm_vol(cfg.mask);
+                        mask = spm_read_vols(tmpv);
+                    end
+                    mask = reshape(logical(mask),[],1);
+                elseif cfgcheck(cfg,'channel')
+                    mask = cfg.channel;
                 end
+                outputs.mask = mask;
+            end
+            EEG = pop_select(EEG,'channel',mask);
+            
+            
+            if cfgcheck(cfg,'single','yes')
+                data = ft_struct2single(EEG);
             end
             
             EEG.filename = files(i).name;
@@ -252,15 +354,17 @@ else
             
             
             %% Apply the transforms and measures
-                for c = 1:length(cfg.transform)
-                   transfunc = cfg.transform{c}.func;
-                   EEG = transfunc(cfg.transform{c},EEG);
-                end
-                
-                for c = 1:length(cfg.measure)
-                    outputs.data(i,:,c) = cfg.measure{c}(EEG);
-                end
-           
+            for c = 1:length(cfg.transform)
+                transfunc = cfg.transform{c}.func;
+                EEG = transfunc(cfg.transform{c},EEG);
+            end
+            
+            outputs.data = zeros(length(cfg.subsrange),length(mask),length(cfg.measure));
+            for c = 1:length(cfg.measure)
+                tmpdata = cfg.measure{c}(EEG);
+                outputs.data(i,horz(mask),c) = tmpdata;
+            end
+            
             outputs.cfg = cfg;
             
             %% Save after every subject so you can continue later
@@ -373,7 +477,7 @@ else
             for c = 1:length(cfg.measure)
                 outdata{i}(1,:,c) = cfg.measure{c}(EEG);
             end
-
+            
             
             
         end
@@ -385,8 +489,12 @@ else
         if ~cfgcheck(cfg,'outfile','none')
             try
                 parsave(cfg.outfile,'outputs',outputs);
+                disp('dm_applymeasure finished')
+                disp('')
+                disp(['Results saved in ' cfg.outfile])
             catch
-                warning('Saving failed')
+                warning(['dynameas warning: Saving failed. Try writing to a different directory,' newline ...
+                    'or request output argument of dm_applymeasure rather than writing to file'])
             end
         end
         
