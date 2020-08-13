@@ -16,9 +16,10 @@ end
 MFOut = zeros(1,dat.nbchan);
 
 disp(' ')
-disp('Computing median frequency...')
+ft_progress('init','text','Computing median frequency...')
 
 for c = 1:dat.nbchan
-    fprintf([num2str(c) ' ']);
+        ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     MFOut(c) = medfreq(dat.data(c,:),dat.srate,frange);
 end
+ft_progress('close')

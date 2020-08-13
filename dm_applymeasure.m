@@ -106,8 +106,10 @@ else
         end
     end
     
+    cfg = setdefault(cfg,'writeouts','yes');
+    
     cfg = setdefault(cfg,'outfile',fullfile(pwd,'outputs.mat'));
-    if cfg.outfile(1) ~= filesep && cfg.outfile(2) ~= ':' %check for relative path
+    if cfg.outfile(1) ~= filesep && cfg.outfile(2) ~= ':'  && strcmpi(cfg.writeouts,'yes') %check for relative path
         cfg.outfile = fullfile(pwd,cfg.outfile);
     end
     
@@ -129,6 +131,12 @@ else
     cfg = setdefault(cfg,'concatenate','yes');
     
     cfg = setdefault(cfg,'single','no');
+    
+    if any(strcmpi(cfg.format,{'afni','nifti','spm','analyze'}))
+        cfg = setdefault(cfg,'writeimage','yes');
+    else
+        cfg = setdefault(cfg,'writeimage','no');
+    end
     
     if ~cfgcheck(cfg,'parallel')
         cfg.parallel.do_parallel = 'no';
@@ -178,18 +186,17 @@ else
         for i = cfg.subsrange
             
             %% Load the data
-            filename = files(i).name;
             outputs.sub{i} = files(i).name;
             outputs.startsub = i+1;
             
             disp(' ')
-            disp(['Now processing subject ' num2str(i)])
+            disp(['Now processing ' files(i).name])
             
             
             switch cfg.format
                 case 'fieldtrip'
                     EEG = struct;
-                    allvars = load(fullfile(files(i).folder,filename));
+                    allvars = load(fullfile(files(i).folder,files(i).name));
                     if ~cfgcheck(cfg,'ftvar')
                         names = fieldnames(allvars);
                         for c = 1:length(names)
@@ -221,7 +228,7 @@ else
                     
                     EEG = ft2eeglab(data);
                 case 'eeglab'
-                    EEG = pop_loadset( 'filename', filename, 'filepath', files(i).folder);
+                    EEG = pop_loadset( 'files(i).name', files(i).name, 'filepath', files(i).folder);
                     outputs.chanlocs = EEG.chanlocs;
                     if i == outputs.startsub-1
                         data = eeglab2fieldtrip(EEG,'preprocessing','none');
@@ -243,31 +250,31 @@ else
                     end
                 case 'afni'
                     opt = struct; opt.format = 'vector';
-                    [~,brik,brikinfo] = BrikLoad(fullfile(files(i).folder,filename));
+                    [~,brik,brikinfo] = BrikLoad(fullfile(files(i).folder,files(i).name));
                     EEG = eeg_emptyset();
                     EEG.data = brik;
                     brik = [];
-                    EEG.srate = 1000/brikinfo.TAXIS_OFFSETS;
+                    EEG.srate = 1000/brikinfo.TAXIS_FLOATS(2);
                     EEG.etc.dims = brikinfo.DATASET_DIMENSIONS(1:3);
                     EEG = eeg_checkset(EEG);
                     EEG = ft_struct2single(EEG);
                     
                     if i == outputs.startsub-1
-                        outputs.ext{i} = char(extractAfter(filename,'+'));
+                        outputs.ext{i} = char(extractAfter(files(i).name,'+'));
                         outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
                         outputs.hdr = brikinfo;
                     end
                 case 'nifti'
-                    info = niftiinfo(fullfile(files(i).folder,filename));
-
-                    data = niftiread(fullfile(files(i).folder,filename));
+                    info = niftiinfo(fullfile(files(i).folder,files(i).name));
+                    
+                    data = niftiread(fullfile(files(i).folder,files(i).name));
                     EEG = eeg_emptyset();
                     EEG.data = reshape(data,[],info.ImageSize(4));
                     data = [];
                     if strcmpi(info.TimeUnits,'second')
-                        EEG.srate = 1/info.PixelDimensions(4);
+                        EEG.srate = 1/info.ImageSize(4);
                     elseif strcmpi(info.TimeUnits,'millisecond')
-                        EEG.srate = 1000/info.PixelDimensions(4);
+                        EEG.srate = 1000/info.ImageSize(4);
                     else
                         error('Dynameas error: unknown time unit in nifti header')
                     end
@@ -281,8 +288,8 @@ else
                         outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
                     end
                 case {'spm','analyze'}
-                    mkdir tmp 
-                    gunzip(fullfile(files(i).folder,filename),fullfile(pwd,tmp))
+                    mkdir tmp
+                    gunzip(fullfile(files(i).folder,files(i).name),fullfile(pwd,tmp))
                     cd tmp
                     tmpfiles = dir('*.img');
                     V = spm_vol(extractfield(tmpfiles,'name'));
@@ -297,13 +304,13 @@ else
                     EEG = ft_struct2single(EEG);
                     
                     if i == outputs.startsub-1
-                        outputs.hdr = mergestructs(V);
+                        outputs.hdr = V;
                         outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
                     end
                     cd ..
-                    system(['rm -r tmp']) % fix later - requires linux or mac
+                    system('rm -r tmp') % fix later - requires linux or mac
                 case {'raw','mne'}
-                    cfg = []; cfg.dataset = fullfile(files(i).folder,filename);
+                    cfg = []; cfg.dataset = fullfile(files(i).folder,files(i).name);
                     data = ft_preprocessing(cfg,data);
                     
                     if cfgcheck(cfg,'concatenate','yes')
@@ -349,7 +356,7 @@ else
                 data = ft_struct2single(EEG);
             end
             
-            EEG.filename = files(i).name;
+            EEG.files(i).name = files(i).name;
             EEG.filepath = files(i).folder;
             
             
@@ -359,25 +366,94 @@ else
                 EEG = transfunc(cfg.transform{c},EEG);
             end
             
-            outputs.data = zeros(length(cfg.subsrange),length(mask),length(cfg.measure));
-            for c = 1:length(cfg.measure)
-                tmpdata = cfg.measure{c}(EEG);
-                outputs.data(i,horz(mask),c) = tmpdata;
+            if strcmpi(cfg.writeouts,'yes')
+                outputs.data = zeros(length(cfg.subsrange),length(mask),length(cfg.measure));
+                for c = 1:length(cfg.measure)
+                    tmpdata = cfg.measure{c}(EEG);
+                    outputs.data(i,horz(mask),c) = tmpdata;
+                end
+            else
+                outdata = zeros(1,length(mask),length(cfg.measure));
+                outdata(1,horz(mask),c) = tmpdata;
             end
             
             outputs.cfg = cfg;
             
             %% Save after every subject so you can continue later
-            if ~cfgcheck(cfg,'outfile','none')
-                try
-                    save(cfg.outfile,'outputs');
-                catch
-                    warning('Saving failed')
+            try
+                if strcmpi(cfg.writeouts,'yes')
+                    save(cfg.outfile,'outputs','-v7.3');
                 end
+
+                if any(strcmpi({'afni','nifti','spm','analyze'},cfg.format)) && strcmpi(cfg.writeimage,'yes')
+                    % write an image containing the outputs
+                    switch cfg.format
+                        case 'afni'
+                            currdir = pwd;
+                            outs = tokenize(cfg.outfile,'/');
+                            outdir = fullfile(outs{1:end-1});
+                            if ~isempty(outdir)
+                                cd(outdir)
+                            end
+                            brikout = reshape(squeeze(outdata(1,:,:)),outputs.hdr.DATASET_DIMENSIONS(1),...
+                                outputs.hdr.DATASET_DIMENSIONS(2),outputs.hdr.DATASET_DIMENSIONS(3),length(outputs.meas));
+                            brikinfoout = outputs.hdr;
+                            brikinfoout.DATASET_DIMENSIONS(4) = length(outputs.meas);
+                            tmp = cellfun(@func2str,outputs.meas,'UniformOutput',false);
+                            tmp = extractBefore(tmp,'_wrapper'); tmp = erase(tmp,'_');
+                            tmp = cellcat('~',tmp,'',1); tmp = cat(2,tmp{:}); tmp(end) = [];
+                            brikinfoout.BRICK_LABS = tmp;
+                            brikinfoout.BRICK_TYPES = [1]; %store data as shorts
+                            brikinfoout.BRICK_STATS = []; %automatically set
+                            brikinfoout.BRICK_FLOAT_FACS = [];%automatically set
+                            brikinfoout.IDCODE_STRING = '';%automatically set
+                            brikinfoout.RootName = ''; %that'll get set by WriteBrik
+                            brikinfoout.DATASET_RANK(1) = length(outputs.meas);
+                            % Finish fixing this later so the output
+                            % makes sense to afni
+                            
+                            opts.Scale = 1;
+                            suf = outs{end}; suf = erase(suf,'.mat');
+                            subpref = extractBefore(outputs.sub{i},'+');
+                            opts.Prefix = [subpref '_' suf];
+                            opts.verbose = 0;
+                            WriteBrik(brikout,brikinfoout,opts)
+                            cd(currdir)
+                        case 'nifti'
+                            niftiout = reshape(squeeze(outdata(1,:,:)),outputs.hdr.ImageSize(1),...
+                                outputs.hdr.ImageSize(2),outputs.hdr.ImageSize(3),length(outputs.meas));
+                            headerout = outputs.hdr;
+                            headerout.hdr.ImageSize(4) = length(outputs.meas);
+                            headerout.Filename = [char(extractBefore(headerout.Filename,'nii')) '_' outs{end} '.nii'];
+                            headerout.Filemoddate = char(datetime);
+                            headerout.PixelDimensions(4) = 1;
+                            tmp = cellfun(@func2str,outputs.meas,'UniformOutput',false);
+                            tmp = extractBefore(tmp,'_wrapper'); tmp = erase(tmp,'_');
+                            tmp = cellcat('~',tmp,'',1); tmp = cat(2,tmp{:}); tmp(end) = [];
+                            headerout.Description = tmp;
+                            niftiwrite(niftiout,headerout.Filename,headerout);
+                        case {'spm','analyze'}
+                            for q = 1:length(outputs.meas)
+                                hdr = outputs.hdr(1);
+                                hdr.dt = [16 0];
+                                outdata = squeeze(single(outdata(:,:,q)));
+                                outdata = reshape(outdata,hdr.dim(1),hdr.dim(2),hdr.dim(3));
+                                hdr.fname = [char(extractBefore(hdr.fname,'.img')) '_' outs{end} '_meas' num2str(q) '.img'];
+                                spm_write_vol(hdr,outdata);
+                            end
+                            tar([char(extractBefore(hdr.fname,'_meas')) '.tar.gz'],'*meas*.img')
+                            system(['rm *meas*.img']) % again, only works for linux and mac
+                    end
+                end  
+                disp(['Results saved in ' cfg.outfile])
+            catch
+                warning(['dynameas warning: Saving failed. Try writing to a different directory,' newline ...
+                    'or request output argument of dm_applymeasure rather than writing to file'])
             end
-            
         end
         
+        disp('dm_applymeasure finished')
+        disp('')
     else
         %% Parallel version
         
@@ -397,7 +473,7 @@ else
                 tmpdata = allvars.(ftvar);
             end
         else
-            EEG = pop_loadset('filename',files(1).name,'filepath',files(1).folder);
+            EEG = pop_loadset('files(i).name',files(1).name,'filepath',files(1).folder);
             outputs.chanlocs = EEG.chanlocs;
             tmpdata = eeglab2fieldtrip(EEG,'preprocessing','none');
         end
@@ -430,7 +506,7 @@ else
         parfor i = 1:length(cfg.subsrange)
             
             %% Load the data
-            filename = files(cfg.subsrange(i)).name;
+            files(i).name = files(cfg.subsrange(i)).name;
             sub{i} = files(cfg.subsrange(i)).name;
             %outputs.startsub = i+1;
             
@@ -440,7 +516,7 @@ else
             
             if cfgcheck(cfg,'format','fieldtrip')
                 EEG = struct;
-                allvars = parload(fullfile(files(cfg.subsrange(i)).folder,filename));
+                allvars = parload(fullfile(files(cfg.subsrange(i)).folder,files(i).name));
                 if ~cfgcheck(cfg,'ftvar')
                     names = fieldnames(allvars);
                     for c = 1:length(names)
@@ -461,10 +537,10 @@ else
                 
                 EEG = ft2eeglab(data);
             else
-                EEG = pop_loadset( 'filename', filename, 'filepath', files(cfg.subsrange(i)).folder);
+                EEG = pop_loadset( 'files(i).name', files(i).name, 'filepath', files(cfg.subsrange(i)).folder);
             end
             
-            EEG.filename = files(cfg.subsrange(i)).name;
+            EEG.files(i).name = files(cfg.subsrange(i)).name;
             EEG.filepath = files(cfg.subsrange(i)).folder;
             
             %% Apply the transforms and measures
@@ -488,7 +564,51 @@ else
         
         if ~cfgcheck(cfg,'outfile','none')
             try
-                parsave(cfg.outfile,'outputs',outputs);
+                parsave(cfg.outfile,'outputs',outputs,'-v7.3');
+                
+                if any(strcmpi({'afni','nifti','spm','analyze'},cfg.format)) && strcmpi(cfg.writeimage,'yes')
+                    % write an image containing the outputs
+                    switch cfg.format
+                        case 'afni'
+                            currdir = pwd;
+                            outs = tokenize(cfg.outfile,'/');
+                            outdir = fullfile(outs{1:end-1});
+                            if ~isempty(outdir)
+                                cd(outdir)
+                            end
+                            for i = 1:length(outputs.sub)
+                                brikout = reshape(squeeze(outputs.data(i,:,:)),outputs.hdr.DATASET_DIMENSIONS(1),...
+                                    outputs.hdr.DATASET_DIMENSIONS(2),outputs.hdr.DATASET_DIMENSIONS(3),length(outputs.meas));
+                                brikinfoout = outputs.hdr;
+                                brikinfoout.DATASET_DIMENSIONS(4) = length(outputs.meas);
+                                tmp = cellfun(@func2str,outputs.meas,'UniformOutput',false);
+                                tmp = extractBefore(tmp,'_wrapper'); tmp = erase(tmp,'_');
+                                tmp = cellcat('~',tmp,'',1); tmp = cat(2,tmp{:}); tmp(end) = [];
+                                brikinfoout.BRICK_LABS = tmp;
+                                brikinfoout.BRICK_TYPES = [1]; %store data as shorts
+                                brikinfoout.BRICK_STATS = []; %automatically set
+                                brikinfoout.BRICK_FLOAT_FACS = [];%automatically set
+                                brikinfoout.IDCODE_STRING = '';%automatically set
+                                brikinfoout.RootName = ''; %that'll get set by WriteBrik
+                                brikinfoout.DATASET_RANK(1) = length(outputs.meas);
+                                % Finish fixing this later so the output
+                                % makes sense to afni
+                                
+                                opts.Scale = 1;
+                                suf = outs{end}; suf = erase(suf,'.mat');
+                                subpref = extractBefore(outputs.sub{i},'+');
+                                opts.Prefix = [subpref '_' suf];
+                                opts.verbose = 0;
+                                WriteBrik(brikout,brikinfoout,opts)
+                            end
+                            cd(currdir)
+                        case 'nifti'
+                            niftiout = reshape(outputs.data,outputs.hdr.ImageSize(1),...
+                                outputs.hdr.ImageSize(2),outputs.hdr.ImageSize(3),length(outputs.meas));
+                            
+                    end
+                end
+                
                 disp('dm_applymeasure finished')
                 disp('')
                 disp(['Results saved in ' cfg.outfile])

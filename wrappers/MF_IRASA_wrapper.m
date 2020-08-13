@@ -10,9 +10,10 @@ end
 MFOut = zeros(1,EEG.nbchan);
 
 disp(' ')
-disp('Computing median frequency...')
+ft_progress('init','text','Computing median frequency...')
 
 for c = 1:size(EEG.(oscifrac),2)
-    fprintf([num2str(c) ' ']);
+        ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     MFOut(c) = medfreq(EEG.(oscifrac),EEG.freq,frange);
 end
+ft_progress('close')

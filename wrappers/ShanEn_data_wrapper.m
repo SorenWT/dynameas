@@ -1,11 +1,12 @@
-function [ShanEnOut] = ShanEn_EEG_handle(EEG)
+function [ShanEnOut] = ShanEn_data_wrapper(EEG)
 
 ShanEnOut = zeros(1,EEG.nbchan);
 
 disp(' ')
-disp('Computing Shannon Entropy...')
+ft_progress('init','text','Computing Shannon Entropy...')
 
 for c = 1:EEG.nbchan
-    fprintf([num2str(c) ' ']);
+        ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     ShanEnOut(c) = wentropy(EEG.data(c,:),'shannon')/length(EEG.data);
 end
+ft_progress('close')

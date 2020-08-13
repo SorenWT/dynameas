@@ -11,7 +11,7 @@ if siz(1) == 1 || siz(2) == 1
 end
 
 disp(' ')
-disp('Computing modulation index...')
+ft_progress('init','text','Computing modulation index...')
 
 ftdat = eeglab2fieldtrip(data,'preprocessing','none');
 
@@ -35,8 +35,9 @@ else
 end
 
 for c = 1:data.nbchan
-    fprintf([num2str(c) ' ']);
+        ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     tmp = get_mi(lfdat.trial{1}(c,:)',hfdat.trial{1}(c,:)',nbins);%,200,3);
     miout(c) = tmp.MI;
     %miout(c) = tmp.MIp;
 end
+ft_progress('close')

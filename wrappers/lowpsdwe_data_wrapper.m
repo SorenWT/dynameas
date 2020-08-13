@@ -31,9 +31,11 @@ end
 PLEout = zeros(1,dat.nbchan);
 
 disp(' ')
-disp('Computing power law exponent...')
+ft_progress('init','text','Computing power law exponent...')
 
 for c = 1:dat.nbchan
+        ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     fprintf([num2str(c) ' ']);
     PLEout(c) = lowpsdwe(dat.data(c,:),dat.srate,frange(1),frange(2),argsin{:});
 end
+ft_progress('close')

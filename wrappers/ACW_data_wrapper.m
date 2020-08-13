@@ -21,9 +21,10 @@ end
 ACWOut = zeros(1,dat.nbchan);
 
 disp(' ')
-disp('Computing autocorrelation window...')
 
+ft_progress('init','text','Computing autocorrelation window...')
 for c = 1:dat.nbchan
-    fprintf([num2str(c) ' ']);
+    ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     ACWOut(c) = ACW_estimation(dat.data(c,:),dat.srate,winsize);
 end
+ft_progress('close')

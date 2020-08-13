@@ -15,9 +15,10 @@ end
 SpecEnOut = zeros(1,dat.nbchan);
 
 disp(' ')
-disp('Computing spectral entropy...')
+ft_progress('init','text','Computing spectral entropy...')
 
 for c = 1:dat.nbchan
-    fprintf([num2str(c) ' ']);
+    ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     SpecEnOut(c) = pentropy(dat.data(c,:),dat.srate,'Instantaneous',false,'FrequencyLimits',frange);
 end
+ft_progress('close')

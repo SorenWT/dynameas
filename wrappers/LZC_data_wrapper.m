@@ -31,9 +31,11 @@ if ~exist('overlap','var')
 end
 
 disp(' ')
-disp('Computing Lempel-Ziv Complexity...')
+ft_progress('init','text','Computing Lempel-Ziv Complexity...')
 
 for c = 1:dat.nbchan
-    fprintf([num2str(c) ' ']);
+        ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     [~,LZCOut(c)] = lzcomplexity_tramas(dat.data(c,:),'mediana',nsymbols,window,overlap);
 end
+
+ft_progress('close')

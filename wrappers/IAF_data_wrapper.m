@@ -3,11 +3,11 @@ function [IAFOut] = IAF_EEG_handle(EEG)
 IAFOut = zeros(1,EEG.nbchan);
 
 disp(' ')
-disp('Computing individual alpha frequency...')
+ft_progress('init','text','Computing individual alpha frequency...')
 %EEG = pop_eegfiltnew(EEG, 7, 13, 826, 0, [], 0);
 [spectra,freqs] = spectopo(EEG.data,0,EEG.srate,'plot','off');
 for c = 1:EEG.nbchan
-    fprintf([num2str(c) ' ']);
+        ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
     peaks = findpeaks(spectra(c,:));
     if ~isempty(peaks)
         peaks = peaks.loc;
@@ -17,3 +17,4 @@ for c = 1:EEG.nbchan
         IAFOut(c) = NaN;
     end
 end
+ft_progress('close')
