@@ -215,7 +215,7 @@ else
                         data = ft_concat(data);
                     end
                     
-                    if i == outputs.startsub-1
+                    if i == 1
                         if isfield(data,'label')
                             outputs.chan = data.label;
                         end
@@ -228,9 +228,9 @@ else
                     
                     EEG = ft2eeglab(data);
                 case 'eeglab'
-                    EEG = pop_loadset( 'files(i).name', files(i).name, 'filepath', files(i).folder);
+                    EEG = pop_loadset( 'filename', files(i).name, 'filepath', files(i).folder);
                     outputs.chanlocs = EEG.chanlocs;
-                    if i == outputs.startsub-1
+                    if i == 1
                         data = eeglab2fieldtrip(EEG,'preprocessing','none');
                         
                         if cfgcheck(cfg,'concatenate','yes')
@@ -259,7 +259,7 @@ else
                     EEG = eeg_checkset(EEG);
                     EEG = ft_struct2single(EEG);
                     
-                    if i == outputs.startsub-1
+                    if i == 1
                         outputs.ext{i} = char(extractAfter(files(i).name,'+'));
                         outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
                         outputs.hdr = brikinfo;
@@ -283,7 +283,7 @@ else
                     EEG = eeg_checkset(EEG);
                     EEG = ft_struct2single(EEG);
                     
-                    if i == outputs.startsub-1
+                    if i == 1
                         outputs.hdr = info;
                         outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
                     end
@@ -303,7 +303,7 @@ else
                     EEG = eeg_checkset(EEG);
                     EEG = ft_struct2single(EEG);
                     
-                    if i == outputs.startsub-1
+                    if i == 1
                         outputs.hdr = V;
                         outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
                     end
@@ -317,7 +317,7 @@ else
                         data = ft_concat(data);
                     end
                     
-                    if i == outputs.startsub-1
+                    if i == 1
                         if isfield(data,'label')
                             outputs.chan = data.label;
                         end
@@ -333,7 +333,7 @@ else
                     error('Dynameas error: format not recognized. Please check that cfg.format is of a known type')
             end
             
-            if i == outputs.startsub-1
+            if i == 1
                 if cfgcheck(cfg,'mask')
                     if contains(cfg.mask,'nii')
                         mask = niftiread(cfg.mask);
@@ -345,11 +345,15 @@ else
                     end
                     mask = reshape(logical(mask),[],1);
                 elseif cfgcheck(cfg,'channel')
-                    mask = cfg.channel;
+                    mask = zeros(EEG.nbchan,1);
+                    mask(cfg.channel) = 1;
+                else
+                    mask = ones(EEG.nbchan,1);
                 end
                 outputs.mask = mask;
             end
-            EEG = pop_select(EEG,'channel',mask);
+
+            EEG = pop_select(EEG,'channel',find(mask));
             
             
             if cfgcheck(cfg,'single','yes')
@@ -367,14 +371,16 @@ else
             end
             
             if strcmpi(cfg.writeouts,'yes')
-                outputs.data = zeros(length(cfg.subsrange),length(mask),length(cfg.measure));
+                if i == 1
+                    outputs.data = zeros(length(cfg.subsrange),length(mask),length(cfg.measure));
+                end
                 for c = 1:length(cfg.measure)
                     tmpdata = cfg.measure{c}(EEG);
-                    outputs.data(i,horz(mask),c) = tmpdata;
+                    outputs.data(i,find(horz(mask)),c) = tmpdata;
                 end
             else
                 outdata = zeros(1,length(mask),length(cfg.measure));
-                outdata(1,horz(mask),c) = tmpdata;
+                outdata(1,find(horz(mask)),c) = tmpdata;
             end
             
             outputs.cfg = cfg;
@@ -473,7 +479,7 @@ else
                 tmpdata = allvars.(ftvar);
             end
         else
-            EEG = pop_loadset('files(i).name',files(1).name,'filepath',files(1).folder);
+            EEG = pop_loadset('filename',files(1).name,'filepath',files(1).folder);
             outputs.chanlocs = EEG.chanlocs;
             tmpdata = eeglab2fieldtrip(EEG,'preprocessing','none');
         end
@@ -506,7 +512,7 @@ else
         parfor i = 1:length(cfg.subsrange)
             
             %% Load the data
-            files(i).name = files(cfg.subsrange(i)).name;
+            filename = files(cfg.subsrange(i)).name;
             sub{i} = files(cfg.subsrange(i)).name;
             %outputs.startsub = i+1;
             
@@ -537,7 +543,7 @@ else
                 
                 EEG = ft2eeglab(data);
             else
-                EEG = pop_loadset( 'files(i).name', files(i).name, 'filepath', files(cfg.subsrange(i)).folder);
+                EEG = pop_loadset( 'filename', files(i).name, 'filepath', files(cfg.subsrange(i)).folder);
             end
             
             EEG.files(i).name = files(cfg.subsrange(i)).name;
@@ -564,7 +570,7 @@ else
         
         if ~cfgcheck(cfg,'outfile','none')
             try
-                parsave(cfg.outfile,'outputs',outputs,'-v7.3');
+                parsave(cfg.outfile,'outputs',outputs);
                 
                 if any(strcmpi({'afni','nifti','spm','analyze'},cfg.format)) && strcmpi(cfg.writeimage,'yes')
                     % write an image containing the outputs

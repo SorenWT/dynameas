@@ -286,11 +286,11 @@ elseif cfgcheck(cfg,'plotmode','violin')
     end
 elseif cfgcheck(cfg,'plotmode','combined')
     for i = cfg.meas
-        tmpcfg = cfg; tmpcfg.plotmode = 'topo'; tmpcfg.meas = i; tmpcfg.savefig = 'no'; tmpcfg.channel = chans;
+        tmpcfg = cfg; tmpcfg.plotmode = 'topo'; tmpcfg.meas = i; tmpcfg.savefig = 'no'; tmpcfg.channel = chans; tmpcfg.measname = cfg.measname(i);
         topofig = dm_measurestatplot(tmpcfg,data,stats);
         topofig = topofig(i);
         
-        tmpcfg.plotmode = 'violin'; tmpcfg.meas = i; tmpcfg.savefig = 'no'; tmpcfg.channel = chans;
+        tmpcfg.plotmode = 'violin'; tmpcfg.meas = i; tmpcfg.savefig = 'no'; tmpcfg.channel = chans; tmpcfg.measname = cfg.measname(i);
         violinfig = dm_measurestatplot(tmpcfg,data,stats);
         violinfig = violinfig(i);
         

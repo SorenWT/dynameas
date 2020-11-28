@@ -11,19 +11,13 @@ function [EEG] = ft2eeglab(data)
 
 % load chanlocs.mat
 % EEG.chanlocs = chanlocs;
-EEG.chanlocs = [];
+
+EEG = eeg_emptyset();
 
 for i=1:size(data.trial,2)
   EEG.data(:,:,i) = single(data.trial{i});
 end
 
-EEG.setname    = ''; %data.cfg.dataset;
-EEG.filename   = '';
-EEG.filepath   = '';
-EEG.subject    = '';
-EEG.group      = '';
-EEG.condition  = '';
-EEG.session    = [];
 EEG.comments   = 'preprocessed with fieldtrip';
 EEG.nbchan     = size(data.trial{1},1);
 EEG.trials     = size(data.trial,2);
@@ -32,15 +26,7 @@ EEG.srate      = data.fsample;
 EEG.xmin       = data.time{1}(1);
 EEG.xmax       = data.time{1}(end);
 EEG.times      = data.time{1};
-EEG.ref        = []; %'common';
-EEG.event      = [];
-EEG.epoch      = [];
-EEG.icawinv    = [];
-EEG.icasphere  = [];
-EEG.icaweights = [];
-EEG.icaact     = [];
 EEG.saved      = 'no';
-EEG.etc = [];
 
 %[ALLEEG EEG CURRENTSET] = eeg_store(ALLEEG, EEG);
 %eeglab redraw
