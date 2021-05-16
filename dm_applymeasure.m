@@ -163,6 +163,11 @@ else
     
     files = dir(fullfile(dirname,cfg.files));
     
+    if isempty(files)
+       error(['No files found matching the specification ' cfg.files ' in directory ' dirname ...
+           ': make sure you''re pointing dynameas towards the right folder!'])
+    end
+    
     %% Set up the outputs structure
     if cfgcheck(cfg,'continue','yes')
         load(cfg.outfile)
@@ -582,8 +587,8 @@ else
                             if ~isempty(outdir)
                                 cd(outdir)
                             end
-                            for i = 1:length(outputs.sub)
-                                brikout = reshape(squeeze(outputs.data(i,:,:)),outputs.hdr.DATASET_DIMENSIONS(1),...
+                            for ii = 1:length(outputs.sub)
+                                brikout = reshape(squeeze(outputs.data(ii,:,:)),outputs.hdr.DATASET_DIMENSIONS(1),...
                                     outputs.hdr.DATASET_DIMENSIONS(2),outputs.hdr.DATASET_DIMENSIONS(3),length(outputs.meas));
                                 brikinfoout = outputs.hdr;
                                 brikinfoout.DATASET_DIMENSIONS(4) = length(outputs.meas);
@@ -602,7 +607,7 @@ else
                                 
                                 opts.Scale = 1;
                                 suf = outs{end}; suf = erase(suf,'.mat');
-                                subpref = extractBefore(outputs.sub{i},'+');
+                                subpref = extractBefore(outputs.sub{ii},'+');
                                 opts.Prefix = [subpref '_' suf];
                                 opts.verbose = 0;
                                 WriteBrik(brikout,brikinfoout,opts)
