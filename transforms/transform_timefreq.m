@@ -3,6 +3,8 @@ function freqdata = transform_timefreq(cfg,data)
 cfg = setdefault(cfg,'method','mtmconvol');
 cfg = setdefault(cfg,'load','yes');
 cfg = setdefault(cfg,'save','no');
+cfg = setdefault(cfg,'fldr',pwd);
+cfg = setdefault(cfg,'pad','nextpow2');
 
 switch cfg.method
 %     case 'mtmfft'
@@ -37,6 +39,7 @@ disp(' ')
 disp('Doing time-frequency transformation...')
 fname = data.filename;
 ftdata = eeglab2fieldtrip(data,'preprocessing','none');
+ftdata = ft_concat(ftdata);
 
 if exist(fullfile(cfg.fldr,[fname '_timefreq_' cfg.method '.mat']),'file') && strcmpi(cfg.load,'yes')
     freqdata = parload(fullfile(cfg.fldr,[fname '_timefreq_' cfg.method '.mat']),'envdata');

@@ -1,4 +1,4 @@
-function [stats] = ft_measurestatistics(cfg,data)
+function [stats] = dm_measurestatistics(cfg,data)
 % ft_measurestatistics does stats on two (eventually or more) outputs of
 % ft_applymeasure
 %
@@ -27,7 +27,7 @@ function [stats] = ft_measurestatistics(cfg,data)
 %      cluster: if you chose 'cluster' as the multiple comparison
 %         correction method, you can add optional inputs for the
 %         permutation test
-%              nrand: number of permutations (default = 10000)
+%              nrand: number of permutations (default = 2000)
 %              minnbchan: minimum number of channels in a cluster (default
 %              = 1)
 %              statfun: the fieldtrip function to use for the permutation
@@ -103,9 +103,9 @@ if cfgcheck(cfg,'multcompare','cluster') && ~cfgcheck(cfg.cluster,'statfun')
         case 'signrank'
             cfg.cluster.statfun = 'ft_statfun_fast_signrank';
         case 'anova'
-            cfg.cluster.statfun = 'ft_statfun_indepsamplesF'; 
+            cfg.cluster.statfun = 'ft_statfun_indepsamplesFunivariate'; 
         case 'rmanova'
-            cfg.cluster.statfun = 'ft_statfun_depsamplesF';
+            cfg.cluster.statfun = 'ft_statfun_depsamplesFunivariate';
         case 'kruskalwallis'
             cfg.cluster.statfun = 'ft_statfun_kruskal';
         case 'friedman'
@@ -116,7 +116,7 @@ if cfgcheck(cfg,'multcompare','cluster') && ~cfgcheck(cfg.cluster,'statfun')
 end
 
 if cfgcheck(cfg,'multcompare','cluster') && ~cfgcheck(cfg.cluster,'nrand')
-    cfg.cluster.nrand = 10000;
+    cfg.cluster.nrand = 2000;
 end
 
 if cfgcheck(cfg,'multcompare','cluster') && ~cfgcheck(cfg.cluster,'minnbchan')

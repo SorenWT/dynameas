@@ -553,18 +553,20 @@ else
                 EEG = ft2eeglab(data);
             else
                 EEG = pop_loadset( 'filename', files(i).name, 'filepath', files(cfg.subsrange(i)).folder);
+            
+                if cfgcheck(cfg,'concatenate','yes')
+                    
+                end
+            
             end
             
             EEG.files(i).name = files(cfg.subsrange(i)).name;
             EEG.filepath = files(cfg.subsrange(i)).folder;
             
             %% Apply the transforms and measures
-           for c = 1:length(cfg.transform)
-                %EEG = cfg.transform{c}(EEG);
+            for c = 1:length(cfg.transform)
                 transfunc = cfg.transform{c}.func;
-                oldeeg = EEG;
-                EEG = transfunc(cfg.transform{c}.cfg,EEG);
-                EEG.filename = oldeeg.filename;
+                EEG = transfunc(cfg.transform{c},EEG);
             end
             
             
