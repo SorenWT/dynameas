@@ -16,14 +16,14 @@ fname = data.filename;
 % if done on a continuous resting state, flip time and trials
 
 fields = fieldnames(data);
-param = fields{strcmpi(fields,'fourierspctrm')|strcmpi(fields,'powspctrm')};
+param = fields{strcmpi(fields,'fourierspctrm') | strcmpi(fields,'powspctrm')};
 
 if size(data.(param),1)==1 && size(data.(param),4)>1
     data.(param) = permute(data.(param),[4 2 3 1]); data.time = 1;
 end
 
 if exist(fullfile(cfg.fldr,[fname '_conn_' cfg.method '.mat']),'file') && strcmpi(cfg.load,'yes')
-    conndata = parload(fullfile(cfg.fldr,[fname '_conn_' cfg.method '.mat']),'envdata');
+    conndata = parload(fullfile(cfg.fldr,[fname '_conn_' cfg.method '.mat']),'conndata');
 else
     %ftdata = eeglab2fieldtrip(data,'preprocessing','none');
     switch cfg.method
@@ -40,6 +40,11 @@ else
             tmpcfg = cfg; tmpcfg = rmfield(tmpcfg,{'load','save'});
             conndata = ft_connectivityanalysis(tmpcfg,data);
     end
+end
+
+if isfield_nest(data,'cfg.dm')
+    % copy over any Dynameas-computed stuff from the data into conndata
+   conndata.cfg.dm = data.cfg.dm;  
 end
 
 if cfgcheck(cfg,'save','yes')

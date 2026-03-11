@@ -161,11 +161,11 @@ else
         dirname = uigetdir;
     end
     
-    files = dir(fullfile(dirname,cfg.files));
+    files = dir(fullfile(dirname,cfg.files)); cfg.filelist = files;
     
     if isempty(files)
-       error(['No files found matching the specification ' cfg.files ' in directory ' dirname ...
-           ': make sure you''re pointing dynameas towards the right folder!'])
+        error(['No files found matching the specification ' cfg.files ' in directory ' dirname ...
+            ': make sure you''re pointing dynameas towards the right folder!'])
     end
     
     %% Set up the outputs structure
@@ -197,147 +197,8 @@ else
             disp(' ')
             disp(['Now processing ' files(i).name])
             
+            [EEG,outputs,cfg] = loadData(cfg,outputs,i);
             
-            switch cfg.format
-                case 'fieldtrip'
-                    EEG = struct;
-                    allvars = load(fullfile(files(i).folder,files(i).name));
-                    if ~cfgcheck(cfg,'ftvar')
-                        names = fieldnames(allvars);
-                        for c = 1:length(names)
-                            if isstruct(allvars.(names{c}))
-                                data = allvars.(names{c});
-                                clear allvars
-                                break
-                            end
-                        end
-                        clear names
-                    else
-                        data = allvars.(ftvar);
-                    end
-                    
-                    if cfgcheck(cfg,'concatenate','yes')
-                        data = ft_concat(data);
-                    end
-                    
-                    if i == 1
-                        if isfield(data,'label')
-                            outputs.chan = data.label;
-                        end
-                        if isfield(data,'elec')
-                            outputs.elec = data.elec;
-                        elseif isfield(data,'grad')
-                            outputs.grad = data.grad;
-                        end
-                    end
-                    
-                    EEG = ft2eeglab(data);
-                case 'eeglab'
-                    EEG = pop_loadset( 'filename', files(i).name, 'filepath', files(i).folder);
-                    outputs.chanlocs = EEG.chanlocs;
-                    %if i == 1
-                        data = eeglab2fieldtrip(EEG,'preprocessing','none');
-                        
-                        if cfgcheck(cfg,'concatenate','yes')
-                            data = ft_concat(data);
-                            EEG = ft2eeglab(data);
-                            EEG.chanlocs = outputs.chanlocs;
-                        end
-                        
-                    if i ==1 
-                        if isfield(data,'label')
-                            outputs.chan = data.label;
-                        end
-                        if isfield(data,'elec')
-                            outputs.elec = data.elec;
-                        elseif isfield(data,'grad')
-                            outputs.grad = data.grad;
-                        end
-                    end
-                case 'afni'
-                    opt = struct; opt.format = 'vector';
-                    [~,brik,brikinfo] = BrikLoad(fullfile(files(i).folder,files(i).name));
-                    EEG = eeg_emptyset();
-                    EEG.data = brik;
-                    brik = [];
-                    EEG.srate = 1000/brikinfo.TAXIS_FLOATS(2);
-                    EEG.etc.dims = brikinfo.DATASET_DIMENSIONS(1:3);
-                    EEG = eeg_checkset(EEG);
-                    EEG = ft_struct2single(EEG);
-                    
-                    if i == 1
-                        outputs.ext{i} = char(extractAfter(files(i).name,'+'));
-                        outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
-                        outputs.hdr = brikinfo;
-                    end
-                case 'nifti'
-                    info = niftiinfo(fullfile(files(i).folder,files(i).name));
-                    
-                    data = niftiread(fullfile(files(i).folder,files(i).name));
-                    EEG = eeg_emptyset();
-                    EEG.data = reshape(data,[],info.ImageSize(4));
-                    data = [];
-                    if strcmpi(info.TimeUnits,'second')
-                        EEG.srate = 1/info.ImageSize(4);
-                    elseif strcmpi(info.TimeUnits,'millisecond')
-                        EEG.srate = 1000/info.ImageSize(4);
-                    else
-                        error('Dynameas error: unknown time unit in nifti header')
-                    end
-                    
-                    EEG.etc.dims = info.ImageSize;
-                    EEG = eeg_checkset(EEG);
-                    EEG = ft_struct2single(EEG);
-                    
-                    if i == 1
-                        outputs.hdr = info;
-                        outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
-                    end
-                case {'spm','analyze'}
-                    mkdir tmp
-                    gunzip(fullfile(files(i).folder,files(i).name),fullfile(pwd,tmp))
-                    cd tmp
-                    tmpfiles = dir('*.img');
-                    V = spm_vol(extractfield(tmpfiles,'name'));
-                    V = cat(1,V{:});
-                    dat = spm_read_vols(V);
-                    EEG = eeg_emptyset(EEG);
-                    EEG.data = reshape(dat,[],length(V));
-                    dat = [];
-                    EEG.srate = 1; %fix this later
-                    EEG.etc.dims = V(1).dim;
-                    EEG = eeg_checkset(EEG);
-                    EEG = ft_struct2single(EEG);
-                    
-                    if i == 1
-                        outputs.hdr = V;
-                        outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
-                    end
-                    cd ..
-                    system('rm -r tmp') % fix later - requires linux or mac
-                case {'raw','mne'}
-                    cfg = []; cfg.dataset = fullfile(files(i).folder,files(i).name);
-                    data = ft_preprocessing(cfg,data);
-                    
-                    if cfgcheck(cfg,'concatenate','yes')
-                        data = ft_concat(data);
-                    end
-                    
-                    if i == 1
-                        if isfield(data,'label')
-                            outputs.chan = data.label;
-                        end
-                        if isfield(data,'elec')
-                            outputs.elec = data.elec;
-                        elseif isfield(data,'grad')
-                            outputs.grad = data.grad;
-                        end
-                    end
-                    
-                    EEG = ft2eeglab(data);
-                otherwise
-                    error('Dynameas error: format not recognized. Please check that cfg.format is of a known type')
-            end
             
             if i == 1
                 if cfgcheck(cfg,'mask')
@@ -358,7 +219,7 @@ else
                 end
                 outputs.mask = mask;
             end
-
+            
             EEG = pop_select(EEG,'channel',find(mask));
             
             
@@ -366,7 +227,7 @@ else
                 data = ft_struct2single(EEG);
             end
             
-            EEG.files(i).name = files(i).name;
+            EEG.filename = files(i).name;
             EEG.filepath = files(i).folder;
             
             
@@ -376,7 +237,7 @@ else
                 transfunc = cfg.transform{c}.func;
                 oldeeg = EEG;
                 EEG = transfunc(cfg.transform{c}.cfg,EEG);
-                EEG.filename = oldeeg.filename;
+                EEG(1).filename = oldeeg(1).filename;
             end
             
             if strcmpi(cfg.writeouts,'yes')
@@ -385,6 +246,9 @@ else
                 end
                 for c = 1:length(cfg.measure)
                     tmpdata = cfg.measure{c}(EEG);
+                    if any(imag(tmpdata)~=0)
+                       error('what the fuck') 
+                    end
                     outputs.data(i,find(horz(mask)),c) = tmpdata;
                 end
             else
@@ -399,7 +263,7 @@ else
                 if strcmpi(cfg.writeouts,'yes')
                     save(cfg.outfile,'outputs','-v7.3');
                 end
-
+                
                 if any(strcmpi({'afni','nifti','spm','analyze'},cfg.format)) && strcmpi(cfg.writeimage,'yes')
                     % write an image containing the outputs
                     switch cfg.format
@@ -459,7 +323,7 @@ else
                             tar([char(extractBefore(hdr.fname,'_meas')) '.tar.gz'],'*meas*.img')
                             system(['rm *meas*.img']) % again, only works for linux and mac
                     end
-                end  
+                end
                 disp(['Results saved in ' cfg.outfile])
             catch
                 warning(['dynameas warning: Saving failed. Try writing to a different directory,' newline ...
@@ -472,35 +336,7 @@ else
     else
         %% Parallel version
         
-        if cfgcheck(cfg,'format','fieldtrip')
-            allvars = parload(fullfile(files(1).folder,files(1).name));
-            if ~cfgcheck(cfg,'ftvar')
-                names = fieldnames(allvars);
-                for c = 1:length(names)
-                    if isstruct(allvars.(names{c}))
-                        tmpdata = allvars.(names{c});
-                        allvars = [];
-                        break
-                    end
-                end
-                names = [];
-            else
-                tmpdata = allvars.(ftvar);
-            end
-        else
-            EEG = pop_loadset('filename',files(1).name,'filepath',files(1).folder);
-            outputs.chanlocs = EEG.chanlocs;
-            tmpdata = eeglab2fieldtrip(EEG,'preprocessing','none');
-        end
-        
-        if isfield(tmpdata,'label')
-            outputs.chan = tmpdata.label;
-        end
-        if isfield(tmpdata,'elec')
-            outputs.elec = tmpdata.elec;
-        elseif isfield(tmpdata,'grad')
-            outputs.grad = tmpdata.grad;
-        end
+        [EEG,outputs] = loadData(cfg,outputs,1);
         
         currpool = gcp('nocreate');
         if ~cfgcheck(cfg.parallel,'pool','default')
@@ -528,43 +364,19 @@ else
             disp(' ')
             disp(['Now processing subject ' num2str(i)])
             
+            EEG = loadData(cfg,outputs,i);
             
-            if cfgcheck(cfg,'format','fieldtrip')
-                EEG = struct;
-                allvars = parload(fullfile(files(cfg.subsrange(i)).folder,files(i).name));
-                if ~cfgcheck(cfg,'ftvar')
-                    names = fieldnames(allvars);
-                    for c = 1:length(names)
-                        if isstruct(allvars.(names{c}))
-                            data = allvars.(names{c});
-                            allvars = [];
-                            break
-                        end
-                    end
-                    names = [];
-                else
-                    data = allvars.(ftvar);
-                end
-                
-                if cfgcheck(cfg,'concatenate','yes')
-                    data = ft_concat(data);
-                end
-                
-                EEG = ft2eeglab(data);
-            else
-                EEG = pop_loadset( 'filename', files(i).name, 'filepath', files(cfg.subsrange(i)).folder);
-            end
             
-            EEG.files(i).name = files(cfg.subsrange(i)).name;
+            EEG.filename = files(cfg.subsrange(i)).name;
             EEG.filepath = files(cfg.subsrange(i)).folder;
             
             %% Apply the transforms and measures
-           for c = 1:length(cfg.transform)
+            for c = 1:length(cfg.transform)
                 %EEG = cfg.transform{c}(EEG);
                 transfunc = cfg.transform{c}.func;
                 oldeeg = EEG;
                 EEG = transfunc(cfg.transform{c}.cfg,EEG);
-                EEG.filename = oldeeg.filename;
+                EEG(1).filename = oldeeg(1).filename;
             end
             
             
@@ -637,6 +449,154 @@ else
         end
         
     end
+end
+
+end
+
+
+function [EEG,outputs,cfg] = loadData(cfg,outputs,i)
+
+files = cfg.filelist;
+
+switch cfg.format
+    case 'fieldtrip'
+        EEG = struct;
+        allvars = parload(fullfile(files(i).folder,files(i).name));
+        if ~cfgcheck(cfg,'ftvar')
+            names = fieldnames(allvars);
+            for c = 1:length(names)
+                if isstruct(allvars.(names{c}))
+                    data = allvars.(names{c});
+                    clear allvars
+                    break
+                end
+            end
+            clear names
+        else
+            data = allvars.(ftvar);
+        end
+        
+        if cfgcheck(cfg,'concatenate','yes')
+            data = ft_concat(data);
+        end
+        
+        if i == 1
+            if isfield(data,'label')
+                outputs.chan = data.label;
+            end
+            if isfield(data,'elec')
+                outputs.elec = data.elec;
+            elseif isfield(data,'grad')
+                outputs.grad = data.grad;
+            end
+        end
+        
+        EEG = ft2eeglab(data);
+    case 'eeglab'
+        EEG = pop_loadset( 'filename', files(i).name, 'filepath', files(i).folder);
+        outputs.chanlocs = EEG.chanlocs;
+        %if i == 1
+        data = eeglab2fieldtrip(EEG,'preprocessing','none');
+        
+        if cfgcheck(cfg,'concatenate','yes')
+            data = ft_concat(data);
+            EEG = ft2eeglab(data);
+            EEG.chanlocs = outputs.chanlocs;
+        end
+        
+        if i ==1
+            if isfield(data,'label')
+                outputs.chan = data.label;
+            end
+            if isfield(data,'elec')
+                outputs.elec = data.elec;
+            elseif isfield(data,'grad')
+                outputs.grad = data.grad;
+            end
+        end
+    case 'afni'
+        opt = struct; opt.format = 'vector';
+        [~,brik,brikinfo] = BrikLoad(fullfile(files(i).folder,files(i).name));
+        EEG = eeg_emptyset();
+        EEG.data = brik;
+        brik = [];
+        EEG.srate = 1000/brikinfo.TAXIS_FLOATS(2);
+        EEG.etc.dims = brikinfo.DATASET_DIMENSIONS(1:3);
+        EEG = eeg_checkset(EEG);
+        EEG = ft_struct2single(EEG);
+        
+        if i == 1
+            outputs.ext{i} = char(extractAfter(files(i).name,'+'));
+            outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
+            outputs.hdr = brikinfo;
+        end
+    case 'nifti'
+        info = niftiinfo(fullfile(files(i).folder,files(i).name));
+        
+        data = niftiread(fullfile(files(i).folder,files(i).name));
+        EEG = eeg_emptyset();
+        EEG.data = reshape(data,[],info.ImageSize(4));
+        data = [];
+        if strcmpi(info.TimeUnits,'second')
+            EEG.srate = 1/info.ImageSize(4);
+        elseif strcmpi(info.TimeUnits,'millisecond')
+            EEG.srate = 1000/info.ImageSize(4);
+        else
+            error('Dynameas error: unknown time unit in nifti header')
+        end
+        
+        EEG.etc.dims = info.ImageSize;
+        EEG = eeg_checkset(EEG);
+        EEG = ft_struct2single(EEG);
+        
+        if i == 1
+            outputs.hdr = info;
+            outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
+        end
+    case {'spm','analyze'}
+        mkdir tmp
+        gunzip(fullfile(files(i).folder,files(i).name),fullfile(pwd,tmp))
+        cd tmp
+        tmpfiles = dir('*.img');
+        V = spm_vol(extractfield(tmpfiles,'name'));
+        V = cat(1,V{:});
+        dat = spm_read_vols(V);
+        EEG = eeg_emptyset(EEG);
+        EEG.data = reshape(dat,[],length(V));
+        dat = [];
+        EEG.srate = 1; %fix this later
+        EEG.etc.dims = V(1).dim;
+        EEG = eeg_checkset(EEG);
+        EEG = ft_struct2single(EEG);
+        
+        if i == 1
+            outputs.hdr = V;
+            outputs.chan = cellcat('vox',cellstr(num2str([1:EEG.nbchan]')),'',0);
+        end
+        cd ..
+        system('rm -r tmp') % fix later - requires linux or mac
+    case {'raw','mne'}
+        cfg = []; cfg.dataset = fullfile(files(i).folder,files(i).name);
+        data = ft_preprocessing(cfg,data);
+        
+        if cfgcheck(cfg,'concatenate','yes')
+            data = ft_concat(data);
+        end
+        
+        if i == 1
+            if isfield(data,'label')
+                outputs.chan = data.label;
+            end
+            if isfield(data,'elec')
+                outputs.elec = data.elec;
+            elseif isfield(data,'grad')
+                outputs.grad = data.grad;
+            end
+        end
+        
+        EEG = ft2eeglab(data);
+    otherwise
+        error('Dynameas error: format not recognized. Please check that cfg.format is of a known type')
 end
 
 end

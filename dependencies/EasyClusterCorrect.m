@@ -30,6 +30,12 @@ function [stats] = EasyClusterCorrect(data,datasetinfo,statfun,opts)
 %      stats: a fieldtrip stats structure returned from
 %         ft_timelockstatistics
 
+% change fieldtrip to my customized version
+rmpath(genpath('~/Documents/MATLAB/fieldtrip'))
+addpath('~/Documents/MATLAB/fieldtrip-master');
+
+ft_defaults
+
 
 if nargin < 4
     opts = struct;
@@ -43,7 +49,7 @@ opts = setdefault(opts,'type','Spearman');
 
 opts = setdefault(opts,'channel',{'all'});
 
-if length(datasetinfo.label) >= 32
+if isfield(datasetinfo,'label') && length(datasetinfo.label) >= 32
     opts = setdefault(opts,'distmethod','distance');
 else
     opts = setdefault(opts,'distmethod','triangulation');
@@ -274,6 +280,7 @@ cfg.channel = opts.channel;
 
 cfg.latency = [0 0.5];
 cfg.parameter = 'trial';
+cfg.computeprob = 'yes';
 
 stats = ft_timelockstatistics(cfg,tlock{:});
 

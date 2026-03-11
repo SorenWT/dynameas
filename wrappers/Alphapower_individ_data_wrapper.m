@@ -17,7 +17,6 @@ function [bpout] = Alphapower_individ_data_wrapper(dat,norm_bandpass,psdrange,se
 %   searchrange: the range in which to look for an alpha peak (default =
 %       [5 15]) 
 
-
 % Corcoran, A. W., Alday, P. M., Schlesewsky, M., & Bornkessel?Schlesewsky, 
 % I. (2018). Toward a reliable, automated method of individual alpha 
 % frequency (IAF) quantification. Psychophysiology, 55(7), e13064.
@@ -41,15 +40,15 @@ disp('')
 
 [psum,~,f] = restingIAF(dat.data,dat.nbchan,3,psdrange,dat.srate,searchrange,11,5);
 
-if ~isnan(psum.paf)
-    pf = psum.paf;
-else
-    pf = psum.cog;
-end
+%if ~isnan(psum.paf)
+%    pf = psum.paf;
+%else
+pf = psum.cog;
+%end
 
 try
     iarange = [f(psum.iaw(1)) f(psum.iaw(2))];
-    bpout = Bandpower_EEG_wrapper(dat,iarange,norm_bandpass);
+    bpout = Bandpower_data_wrapper(dat,iarange,norm_bandpass);
 catch
     bpout = NaN(1,dat.nbchan);
 end

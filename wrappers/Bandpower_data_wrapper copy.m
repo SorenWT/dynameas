@@ -2,7 +2,7 @@ function [bp] = Bandpower_data_wrapper(dat,frange,norm_bandpass)
 % Computes the power in a given frequency band
 %
 % Required inputs: 
-%   dat: the original data, in EEGLAB format
+%   dat: the original data, in datLAB format
 %   frange: the frequency range in which you want to compute power, as a
 %       tuple
 % 
@@ -22,20 +22,13 @@ ft_progress('init','text','Computing power...')
 for c = 1:dat.nbchan
     ft_progress(c/dat.nbchan,'Processing channel %d out of %d',c,dat.nbchan);
 
-    if frange(1)>=0.5
    [pxx,f] = pwelch(dat.data(c,:),[],[],2^nextpow2((3/2)*dat.srate),dat.srate);
-    else
-        [pxx,f] = pwelch(dat.data(c,:));
-    end
    findx = intersect(find(f > frange(1)),find(f < frange(2)));
-   %bp(c) = trapz(f(findx),pxx(findx))/numel(findx);
-
    bp(c) = (norm(pxx(findx))^2)./numel(findx);
     %bp(c) = bandpower(dat.data(c,:),dat.srate,frange); 
    if ~strcmpi(norm_bandpass,'no')
        allfindx = intersect(find(f > norm_bandpass(1)),find(f < norm_bandpass(2)));
        bp(c) = bp(c)/((norm(pxx(allfindx))^2)./numel(allfindx));
-       %bp(c) = bp(c)/(trapz(f(allfindx),pxx(allfindx))/numel(allfindx));
         %bp(c) = bp(c)/bandpower(dat.data(c,:),dat.srate,norm_bandpass); 
    end
 end

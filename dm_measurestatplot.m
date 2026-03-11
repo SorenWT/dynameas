@@ -1,4 +1,4 @@
-function figs = dm_measurestatplot(cfg,data,stats)
+function figs = dm_measurestatplot(cfg,stats,data)
 % dm_measurestatplot plots the output of ft_measurestatistics or
 % ft_applymeasure (if stats input is empty)
 %
@@ -35,12 +35,20 @@ function figs = dm_measurestatplot(cfg,data,stats)
 %      reverse: if set to 1, reverses the comparison condition from cond_1 
 %         - cond_2 to cond_2 - cond_1 (default = 0) 
 %
-% data: a cell array of outputs structs from ft_applymeasure
 %
 % stats: a stats cell array from ft_measurestatistics. If no input is
 %      given, only the topography of the data is plotted
+%
+% data: a cell array of outputs structs from ft_applymeasure. Optional
+%      input: otherwise, data will be taken from the stats structure.
+
 
 %% Set up defaults
+
+if nargin < 3 || isempty(data)
+    data = stats{1}.data;
+end
+
 if ~cfgcheck(cfg,'datatype')
     cfg.datatype = 'eeg';
 end
@@ -74,9 +82,9 @@ cfg = setdefault(cfg,'plotparam','dif');
 
 cfg = setdefault(cfg,'savefig','no');
 
-if nargin < 3
-    stats = [];
-end
+% if nargin < 3
+%     stats = [];
+% end
 
 if cfg.reverse
     cord = [2 1];
@@ -106,7 +114,7 @@ if cfgcheck(cfg,'plotmode','topo')
                 clear ax
                 for cc = 1:length(data)
                     subplot(1,length(data)+1,cc)
-                    topoplot(mean(data{cc}.data(:,chans,c),1),data{1}.chanlocs(chans),'maplimits','maxmin');
+                    topoplot(nanmean(data{cc}.data(:,chans,c),1),data{1}.chanlocs(chans),'maplimits','maxmin');
                     title(cfg.cond{cc})
                     FixAxes(gca,20)
                     colormap(cfg.colormap)
@@ -118,7 +126,7 @@ if cfgcheck(cfg,'plotmode','topo')
                 
                 subplot(1,length(data)+1,length(data)+1)
                 if cfgcheck(cfg,'plotparam','dif')
-                    plotparam = mean(data{cord(1)}.data(:,chans,c),1)-mean(data{cord(2)}.data(:,chans,c),1);
+                    plotparam = nanmean(data{cord(1)}.data(:,chans,c),1)-nanmean(data{cord(2)}.data(:,chans,c),1);
                 elseif cfgcheck(cfg,'plotparam','effsize')
                     tmp = cat(1,stats{c}.effsize{:});
                     plotparam = horz(extractfield(tmp,stats{c}.cfg.effectsize));
@@ -146,7 +154,7 @@ if cfgcheck(cfg,'plotmode','topo')
                 clear ax
                 for cc = 1:length(data)
                     subplot(1,length(data)+1,cc)
-                    ft_topoplot_vec(cfg.lay,mean(data{cc}.data(:,chans,c),1),data{1}.chan(chans));
+                    ft_topoplot_vec(cfg.lay,nanmean(data{cc}.data(:,chans,c),1),data{1}.chan(chans));
                     title(cfg.cond{cc})
                     FixAxes(gca,20)
                     colormap(cfg.colormap)
@@ -155,7 +163,7 @@ if cfgcheck(cfg,'plotmode','topo')
                 Normalize_Clim(ax)
                 
                 if cfgcheck(cfg,'plotparam','dif')
-                    plotparam = mean(data{cord(1)}.data(:,chans,c),1)-mean(data{cord(2)}.data(:,chans,c),1);
+                    plotparam = nanmean(data{cord(1)}.data(:,chans,c),1)-nanmean(data{cord(2)}.data(:,chans,c),1);
                 elseif cfgcheck(cfg,'plotparam','effsize')
                     tmp = cat(1,stats{c}.effsize{:});
                     plotparam = horz(extractfield(tmp,stats{c}.cfg.effectsize));
@@ -186,8 +194,8 @@ if cfgcheck(cfg,'plotmode','topo')
                 clear ax
                 for cc = 1:length(data)
                     subplot(1,length(data)+1,cc)
-                    ft_cluster_sourceplot(mean(data{cc}.data(:,chans,c),1),cfg.datasetinfo.sourcemodel,cfg.datasetinfo.atlas,...
-                        ones(size(mean(data{cc}.data(:,chans,c),1)))); % won't work! Fix later
+                    ft_cluster_sourceplot(nanmean(data{cc}.data(:,chans,c),1),cfg.datasetinfo.sourcemodel,cfg.datasetinfo.atlas,...
+                        ones(size(nanmean(data{cc}.data(:,chans,c),1)))); % won't work! Fix later
                     title(cfg.cond{cc})
                     FixAxes(gca,20)
                     colormap(cfg.colormap)
@@ -228,7 +236,7 @@ if cfgcheck(cfg,'plotmode','topo')
                 figs(c) = figure;
                 for cc = 1:length(data)
                     subplot(1,length(data),cc)
-                    topoplot(mean(data{cc}.data(:,chans,c),1),data{1}.chanlocs(chans),'maplimits','maxmin');
+                    topoplot(nanmean(data{cc}.data(:,chans,c),1),data{1}.chanlocs(chans),'maplimits','maxmin');
                     title(cfg.cond{cc})
                     FixAxes(gca,20)
                     colormap(cfg.colormap)
@@ -244,7 +252,7 @@ if cfgcheck(cfg,'plotmode','topo')
                 figs(c) = figure;
                 for cc = 1:length(data)
                     subplot(1,length(data),cc)
-                    ft_topoplot_vec(cfg.lay,mean(data{cc}.data(:,chans,c),1),data{1}.chan(chans));
+                    ft_topoplot_vec(cfg.lay,nanmean(data{cc}.data(:,chans,c),1),data{1}.chan(chans));
                     title(cfg.cond{cc})
                     FixAxes(gca,20)
                     colormap(cfg.colormap)
@@ -259,8 +267,8 @@ if cfgcheck(cfg,'plotmode','topo')
                 figs(c) = figure;
                 for cc = 1:length(data)
                     subplot(1,length(data)+1,cc)
-                    ft_cluster_sourceplot(mean(data{cc}.data(:,chans,c),1),cfg.datasetinfo.sourcemodel,cfg.datasetinfo.atlas,...
-                        ones(size(mean(data{cc}.data(:,chans,c),1)))); %won't work! Fix later
+                    ft_cluster_sourceplot(nanmean(data{cc}.data(:,chans,c),1),cfg.datasetinfo.sourcemodel,cfg.datasetinfo.atlas,...
+                        ones(size(nanmean(data{cc}.data(:,chans,c),1)))); %won't work! Fix later
                     title(cfg.cond{cc})
                     FixAxes(gca,20)
                     colormap(cfg.colormap)
@@ -277,7 +285,7 @@ elseif cfgcheck(cfg,'plotmode','violin')
     for i = cfg.meas
         figs(i) = figure;
         for c = 1:length(data)
-            datastruct.(cfg.cond{c}) = mean(data{c}.data(:,chans,i),2);
+            datastruct.(cfg.cond{c}) = nanmean(data{c}.data(:,chans,i),2);
         end
         ylabel(cfg.measname{find(cfg.meas==i)})
         violinplot(datastruct)
@@ -287,11 +295,11 @@ elseif cfgcheck(cfg,'plotmode','violin')
 elseif cfgcheck(cfg,'plotmode','combined')
     for i = cfg.meas
         tmpcfg = cfg; tmpcfg.plotmode = 'topo'; tmpcfg.meas = i; tmpcfg.savefig = 'no'; tmpcfg.channel = chans; tmpcfg.measname = cfg.measname(i);
-        topofig = dm_measurestatplot(tmpcfg,data,stats);
+        topofig = dm_measurestatplot(tmpcfg,stats,data);
         topofig = topofig(i);
         
         tmpcfg.plotmode = 'violin'; tmpcfg.meas = i; tmpcfg.savefig = 'no'; tmpcfg.channel = chans; tmpcfg.measname = cfg.measname(i);
-        violinfig = dm_measurestatplot(tmpcfg,data,stats);
+        violinfig = dm_measurestatplot(tmpcfg,stats,data);
         violinfig = violinfig(i);
         
         figs(i) = figure;

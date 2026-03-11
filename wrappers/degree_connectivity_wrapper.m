@@ -32,7 +32,12 @@ degreeout = zeros(1,dat.nbchan);
 disp(' ')
 ft_progress('init','text','Computing node degree...')
 
+if ischar(frange)
+    frange = eval(frange);
+end
+
 findx = find(dat.freq>=frange(1) & dat.freq<=frange(2));
+
 
 connparam = [dat.cfg.method 'spctrm'];
 

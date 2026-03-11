@@ -1,4 +1,4 @@
-function [IrasaOut] = PLE_IRASA_EEG_wrapper(spec,frange)
+function [IrasaOut] = PLE_IRASA_wrapper(spec,frange)
 
 disp(' ')
 disp('Computing PLE with IRASA...')

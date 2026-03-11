@@ -22,7 +22,7 @@ function [stats] = dm_measurestatistics(cfg,data)
 %         Toolbox (Hentschke and St�ttgen, 2011) (default set based on
 %         cfg.test)
 %      subs: a vector or cell array of subject indices to choose from. This
-%         allows selection of common subjects if some are missing from one 
+%         allows selection of common subjects if some are missing from one
 %         condition (default = all subjects for each element of 'data')
 %      cluster: if you chose 'cluster' as the multiple comparison
 %         correction method, you can add optional inputs for the
@@ -34,7 +34,7 @@ function [stats] = dm_measurestatistics(cfg,data)
 %              test (default = set based on cfg.test)
 %              datasetinfo: the channel information used by EasyClusterCorrect
 %              (default = from data)
-%      eqinterval: equivalence interval for non-inferiority testing. 
+%      eqinterval: equivalence interval for non-inferiority testing.
 % data: a 1 X N cell array, each cell containing one "outputs" structure
 %      from ft_applymeasure. Each outputs structure must have the same
 %      dimensions
@@ -58,19 +58,25 @@ if ~cfgcheck(cfg,'test')
 end
 
 if ~cfgcheck(cfg,'channel')
-    cfg.channel = {'all'};
+    cfg.channel = 'all';
 end
+
+cfg = setdefault(cfg,'keepdata','yes');
 
 cfg = setdefault(cfg,'meas',1:length(data{1}.meas));
 
 if ~cfgcheck(cfg,'multcompare')
     cfg.multcompare = 'cluster';
+    if ~isfield(cfg,'cluster')
     cfg.cluster = struct;
+    end
 end
 
 if cfgcheck(cfg,'multcompare','cluster') && ~isfield(cfg,'cluster')
     cfg.cluster = struct;
 end
+
+cfg = setdefault(cfg,'computeclustsums','yes');
 
 if ~cfgcheck(cfg,'effectsize')
     switch cfg.test
@@ -103,16 +109,26 @@ if cfgcheck(cfg,'multcompare','cluster') && ~cfgcheck(cfg.cluster,'statfun')
         case 'signrank'
             cfg.cluster.statfun = 'ft_statfun_fast_signrank';
         case 'anova'
-            cfg.cluster.statfun = 'ft_statfun_indepsamplesFunivariate'; 
+            cfg.cluster.statfun = 'ft_statfun_indepsamplesFunivariate';
         case 'rmanova'
             cfg.cluster.statfun = 'ft_statfun_depsamplesFunivariate';
         case 'kruskalwallis'
             cfg.cluster.statfun = 'ft_statfun_kruskal';
         case 'friedman'
             cfg.cluster.statfun = 'ft_statfun_friedman';
-	case 'tost'
-	    cfg.cluster.statfun = 'ft_statfun_tost';
+        case 'tost'
+            cfg.cluster.statfun = 'ft_statfun_tost';
+        case 'correlation'
+            cfg.cluster.statfun = 'ft_statfun_correlationT';
+        case 'partialcorr'
+            cfg.cluster.statfun = 'ft_statfun_partialcorrT';
+        case 'lm'
+            cfg.cluster.statfun = 'ft_statfun_lmT';
     end
+end
+
+if contains(cfg.test,{'lm','correlation','partialcorr'})
+    corrvars = data{2}; data(2) = []; 
 end
 
 if cfgcheck(cfg,'multcompare','cluster') && ~cfgcheck(cfg.cluster,'nrand')
@@ -124,10 +140,26 @@ if cfgcheck(cfg,'multcompare','cluster') && ~cfgcheck(cfg.cluster,'minnbchan')
 end
 
 if isfield(cfg,'eqinterval')
-   cfg.cluster.eqinterval = cfg.eqinterval; 
+    cfg.cluster.eqinterval = cfg.eqinterval;
 end
 
 cfg = setdefault(cfg,'subs',repmat({'all'},1,length(data)));
+cfg = setdefault(cfg,'subsmode','nanmask');
+
+for c = 1:length(data)
+    if ~strcmpi(cfg.subs{c},'all')
+        switch cfg.subsmode
+            case 'select'
+                data{c} = dm_select(data{c},'subs',cfg.subs{c});
+            case 'nanmask'
+                if islogical(cfg.subs{c}) || length(unique(cfg.subs{c}))==2
+                    cfg.subs{c} = find(cfg.subs{c});
+                end
+                data{c} = dm_badsub_mask(data{c},except(1:length(data{c}.sub),cfg.subs{c}));
+        end
+
+    end
+end
 
 %% Select channels
 if isfield(data{1},'elec')
@@ -149,25 +181,16 @@ end
 % for c = 1:length(data)
 %     % for now, chans is always the second dimension, so no need to figure
 %     % out how to work with dimord
-%     
+%
 %     %dimns = tokenize(data{1}.dimord,'_');
 %     %chans = find(strcmpi(dimns,'chan'));
 %     data{c}.data = data{c}.data(:,chans,:,:);
 % end
 
-%% Select subjects
-
-for c = 1:length(data)
-   if ~strcmpi(cfg.subs{c},'all')
-       data{c}.data = data{c}.data(cfg.subs{c},:,:,:);
-       if isfield(data{c},'sub')
-            data{c}.sub = data{c}.sub(cfg.subs{c});
-       end
-   end
-end
+data = dm_select(data,'meas',cfg.meas);
 
 %% Calculate stats
-for i = cfg.meas
+for i = 1:length(cfg.meas)
     %dimns = tokenize(data{1}.dimord,'_');
     if ~cfgcheck(cfg,'multcompare','mean')
         for c = 1:length(chans)
@@ -189,6 +212,13 @@ for i = cfg.meas
                     stats{i}.p(c) = anovan(dat,design,'off');
                 case 'rmanova'
                     % not implemented yet
+                case 'correlation'
+                    [~,stats{i}.p(c)] = corr(data{1}.data(:,chans(c),i),corrvars,'rows','pairwise');
+                case 'partialcorr'
+                    [~,stats{i}.p(c)] = partialcorr(data{1}.data(:,chans(c),i),corrvars(:,1),corrvars(:,2:end),'rows','pairwise');
+                case 'lm'
+                    [~,~,~,~,tmpstats] = regress(data{1}.data(:,chans(c),i),corrvars);
+                    stats{i}.p(c) = tmpstats.p(2);
                 case 'kruskalwallis'
                     dat = []; design = [];
                     for cc = 1:length(data)
@@ -211,10 +241,18 @@ for i = cfg.meas
             end
             
             switch cfg.test
-                case {'ttest','ttest2','ranksum','signrank'}
+                case {'ttest','ttest2'}
                     stats{i}.effsize{c} = mes(data{1}.data(:,chans(c),i),data{2}.data(:,chans(c),i),cfg.effectsize,mesargsin{:});
+                    stats{i}.conddiff = nanmean(data{1}.data(:,:,i),1)-nanmean(data{2}.data(:,:,i),1);
+                case {'ranksum','signrank'}
+                    stats{i}.effsize{c} = mes(data{1}.data(:,chans(c),i),data{2}.data(:,chans(c),i),cfg.effectsize,mesargsin{:});
+                    stats{i}.conddiff = nanmedian(data{1}.data(:,:,i),1)-nanmedian(data{2}.data(:,:,i),1);
                 case {'anova','rmanova','kruskalwallis','friedman'}
                     % not implemented yet
+                case {'lm','correlation'}
+                    stats{i}.effsize(c) = corr(data{1}.data(:,chans(c),i),corrvars,'rows','pairwise');
+                case 'partialcorr'
+                    stats{i}.effsize(c) = partialcorr(data{1}.data(:,chans(c),i),corrvars(:,1),corrvars(:,2:end),'rows','pairwise');
             end
         end
         
@@ -231,15 +269,42 @@ for i = cfg.meas
                     datasetinfo = cfg.cluster.datasetinfo;
                 end
                 
-                for c = 1:length(data)
-                    input{c} = data{c}.data(:,:,i)';
+                switch cfg.test
+                    case {'lm','correlation','partialcorr'}
+                        input{1} = data{1}.data(:,:,i)';
+                        cfg.cluster.external = corrvars(:,1);
+                        if strcmpi(cfg.test,'partialcorr')
+                            cfg.cluster.partial = corrvars(:,2:end);
+                        end
+                       
+                        
+                        stats{i}.cluster = EasyClusterCorrect(input,datasetinfo,cfg.cluster.statfun,cfg.cluster);
+                        stats{i}.mask = stats{i}.cluster.mask;
+                    otherwise 
+                        for c = 1:length(data)
+                            input{c} = data{c}.data(:,:,i)';
+                        end
+                        stats{i}.cluster = EasyClusterCorrect(input,datasetinfo,cfg.cluster.statfun,cfg.cluster);
+                        stats{i}.mask = stats{i}.cluster.mask;
                 end
-                stats{i}.cluster = EasyClusterCorrect(input,datasetinfo,cfg.cluster.statfun,cfg.cluster);
-                stats{i}.mask = stats{i}.cluster.mask;
             case 'fdr'
                 stats{i}.fdr = fdr(stats{i}.p);
                 stats{i}.mask = stats{i}.fdr < 0.05;
         end
+        
+        if cfgcheck(cfg,'computeclustsums','yes')
+            switch cfg.test
+                case {'ttest','signrank'}
+                    tmp = data{1}.data(:,:,i)-data{2}.data(:,:,i);
+                    stats{i}.clustsum_lib = sum(tmp.*(stats{i}.p<0.05),2);
+                    stats{i}.clustsum_cons = sum(tmp.*(horz(stats{i}.mask)),2);
+                case {'ttest2','ranksum'}
+                    tmp = [data{1}.data(:,:,i); data{2}.data(:,:,i)];
+                    stats{i}.clustsum_lib = sum(tmp.*(stats{i}.p<0.05),2);
+                    stats{i}.clustsum_cons = sum(tmp.*(horz(stats{i}.mask)),2);
+            end
+        end
+        
     elseif cfgcheck(cfg,'multcompare','mean')
         switch cfg.test
             case 'ttest'
@@ -281,13 +346,23 @@ for i = cfg.meas
                 stats{i}.p = max(p1,p2);
         end
         switch cfg.test
-            case {'ttest','ttest2','ranksum','signrank''tost'}
+            case {'ttest','ttest2','tost'}
                 stats{i}.effsize = mes(mean(data{1}.data(:,:,i),2),mean(data{2}.data(:,:,i),2),cfg.effectsize,mesargsin{:});
+                stats{i}.conddiff = nanmean(data{1}.data(:,:,i),1)-nanmean(data{2}.data(:,:,i),1);
+            case {'ranksum','signrank'}
+                stats{i}.effsize = mes(mean(data{1}.data(:,:,i),2),mean(data{2}.data(:,:,i),2),cfg.effectsize,mesargsin{:});
+                stats{i}.conddiff = nanmedian(data{1}.data(:,:,i),1)-nanmedian(data{2}.data(:,:,i),1);
             case {'anova','rmanova','kruskalwallis','friedman'}
                 % not implemented yet
         end
     end
     stats{i}.cfg = cfg;
+end
+
+%stats(cellfun(@isempty,stats)) = [];
+
+if strcmpi(cfg.keepdata,'yes')
+   stats{1}.data = data; 
 end
 
 

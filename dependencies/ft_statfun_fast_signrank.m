@@ -19,13 +19,16 @@ if iscell(design)
 %         end
     end
 else
-    tmp = unique(design);
-    indices{1} = find(design == tmp(1));
-    indices{2} = find(design == tmp(2));
+    %tmp = unique(design(cfg.uvar,:));
+    %indices{1} = find(design(cfg.uvar,:) == tmp(1));
+    %indices{2} = find(design(cfg.uvar,:) == tmp(2));
+    indices{1} = find(design(cfg.ivar,:)==1);
+    indices{2} = find(design(cfg.ivar,:)==2);
     
     teststat = ones(size(dat,1),1);
     for c = 1:size(dat,1)
         teststat(c) = fast_signrank(dat(c,indices{1}),dat(c,indices{2}));
+
 %         if median(dat(c,indices{1})) > median(dat(c,indices{2}))
 %             teststat(c) = 1-teststat(c);
 %         else

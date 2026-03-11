@@ -1,4 +1,4 @@
-function [pfout] = Alpha_PF_data_wrapper(dat,psdrange,searchrange)
+function [pfout,psum] = Alpha_PF_data_wrapper(dat,psdrange,searchrange)
 % Calculates the alpha peak frequency of the subject using the methods of
 % Corcoran et al. (2018). Returns NaNs if no alpha peak detected.
 %
@@ -31,12 +31,14 @@ end
 disp('Computing alpha peak frequency...')
 disp('')
 
-[psum] = restingIAF(dat.data,dat.nbchan,3,psdrange,dat.srate,searchrange,11,5);
+[psum,~,f] = restingIAF(dat.data,dat.nbchan,3,psdrange,dat.srate,searchrange,11,5);
 
 if ~isnan(psum.paf)
     pf = psum.paf;
 else
     pf = psum.cog;
 end
+
+psum.f = f;
 
 pfout = repmat(pf,1,dat.nbchan);
